@@ -1,4 +1,5 @@
 import unittest
+import math
 import hw3_sentiment as hw3
 
 # updated 3/5/2020 to fix ordering issues in tests
@@ -28,13 +29,13 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
-        score=sa.score("I loved the hotel")
+        score=sa.score(('id', "I loved the hotel"))
         #P(C|text)=P(I|C)*P(loved|C)*P(the|C)*P(hotel|C),where C is either 0 or 1(Classifier)
         pos = ((1+1)/(8+12))*((1+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*(2/4)
         neg = ((1+1)/(11+12))*((0+1)/(11+12))*((1+1)/(11+12))*((2+1)/(11+12))*(2/4)
         actualScoreDistribution={'1': pos, '0': neg}
-        self.assertAlmostEqual(actualScoreDistribution['0'], score['0'], places=5)
-        self.assertAlmostEqual(actualScoreDistribution['1'], score['1'], places=5)
+        self.assertAlmostEqual(actualScoreDistribution['0'], math.exp(score['0']), places=5)
+        self.assertAlmostEqual(actualScoreDistribution['1'], math.exp(score['1']), places=5)
     
   
     def test_ScorePositiveExampleRepeats(self):
@@ -44,13 +45,13 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
-        score=sa.score("I loved the hotel loved the hotel")
+        score=sa.score(('id', "I loved the hotel loved the hotel"))
         #P(C|text)=P(I|C)*P(loved|C)*P(the|C)*P(hotel|C),where C is either 0 or 1(Classifier)
         pos = ((1+1)/(8+12))*((1+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*((1+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*(2/4)
         neg = ((1+1)/(11+12))*((0+1)/(11+12))*((1+1)/(11+12))*((2+1)/(11+12))*((0+1)/(11+12))*((1+1)/(11+12))*((2+1)/(11+12))*(2/4)
         actualScoreDistribution={'1': pos, '0': neg}
-        self.assertAlmostEqual(actualScoreDistribution['0'], score['0'], places=5)
-        self.assertAlmostEqual(actualScoreDistribution['1'], score['1'], places=5)
+        self.assertAlmostEqual(actualScoreDistribution['0'], math.exp(score['0']), places=5)
+        self.assertAlmostEqual(actualScoreDistribution['1'], math.exp(score['1']), places=5)
 
     def test_ScorePositiveExampleWithUnkowns(self):
         #Tests the Probability Distribution of each class for a positive example
@@ -59,13 +60,14 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
-        score=sa.score("I loved the hotel a lot")
+        import pdb; pdb.set_trace()
+        score=sa.score(('id', "I loved the hotel a lot"))
         #P(C|text)=P(I|C)*P(loved|C)*P(the|C)*P(hotel|C)*P(a|C)*P(lot|C)*P(C),where C is either 0 or 1(Classifier)
         pos = ((1+1)/(8+12))*((1+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*(2/4)
         neg = ((1+1)/(11+12))*((0+1)/(11+12))*((1+1)/(11+12))*((2+1)/(11+12))*(2/4)
         actualScoreDistribution={'1': pos, '0': neg}
-        self.assertAlmostEqual(actualScoreDistribution['0'], score['0'], places=5)
-        self.assertAlmostEqual(actualScoreDistribution['1'], score['1'], places=5)
+        self.assertAlmostEqual(actualScoreDistribution['0'], math.exp(score['0']), places=5)
+        self.assertAlmostEqual(actualScoreDistribution['1'], math.exp(score['1']), places=5)
         
 
     def test_ClassifyForPositiveExample(self):
@@ -74,7 +76,7 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         examples = hw3.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
         #Classifies the test sentence based on the probability distribution of each class
-        label=sa.classify("I loved the hotel a lot")
+        label=sa.classify(('id', "I loved the hotel a lot"))
         actualLabel='1'
         self.assertEqual(actualLabel,label)
         
@@ -85,13 +87,13 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         sa = hw3.SentimentAnalysis()
         examples = hw3.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
-        score=sa.score("I hated the hotel")
+        score=sa.score(('id', "I hated the hotel"))
          #P(C|text)=P(I|C)*P(hated|C)*P(the|C)*P(hotel|C)*P(C),where C is either 0 or 1(Classifier)
         pos = ((1+1)/(8+12))*((0+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*(2/4)
         neg = ((1+1)/(11+12))*((1+1)/(11+12))*((1+1)/(11+12))*((2+1)/(11+12))*(2/4)
         actualScoreDistribution={'1': pos, '0': neg}
-        self.assertAlmostEqual(actualScoreDistribution['0'], score['0'], places=5)
-        self.assertAlmostEqual(actualScoreDistribution['1'], score['1'], places=5)
+        self.assertAlmostEqual(actualScoreDistribution['0'], math.exp(score['0']), places=5)
+        self.assertAlmostEqual(actualScoreDistribution['1'], math.exp(score['1']), places=5)
         
 
     def test_ClassifyForNegativeExample(self):
@@ -99,7 +101,7 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         sa = hw3.SentimentAnalysis()
         examples = hw3.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
-        label=sa.classify("I hated the hotel")
+        label=sa.classify(('id', "I hated the hotel"))
         actualLabel='0'
         self.assertEqual(actualLabel,label)    
 
