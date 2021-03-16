@@ -19,6 +19,7 @@ Cite your sources here:
 POSITIVE = '1'
 NEGATIVE = '0'
 LABELED_TEST_DATA = "label_test_data.txt"
+DEV_DATA = "training_files/dev_file.txt"
 
 class LabelSet(NamedTuple):
     gold: int
@@ -86,7 +87,7 @@ class SentimentAnalysis:
         # NOTE: Deal with not present words in opposite dict here
         self.pos = defaultdict(lambda: 0)
         self.neg = defaultdict(lambda: 0)
-        self.vocab_size = 0
+        self.vocab = 0
         self.prior_prob_pos = 0
         self.prior_prob_neg = 0
 
@@ -100,7 +101,7 @@ class SentimentAnalysis:
                 total_pos += 1
             else:
                 total_neg += 1
-                
+
             for f in self.featurize(e):
                 token = f[0]
                 if label == POSITIVE:
@@ -112,26 +113,25 @@ class SentimentAnalysis:
         total_count = total_pos + total_neg
         self.prior_prob_neg = total_neg / total_count
         self.prior_prob_pos = total_pos / total_count
-        self.vocab_size = len(set(self.neg.keys()) | set(self.pos.keys()))
+        self.vocab = set(self.neg.keys()) | set(self.pos.keys())
 
     def _score_as(self, data, label):
         data_labeled = (data[0], data[1], label)
         prior = (self.prior_prob_pos if label == POSITIVE 
                  else self.prior_prob_neg)
         counts = self.pos if label == POSITIVE else self.neg
+        denominator = sum(counts.values()) + len(self.vocab)
 
         prob = math.log(prior)
         for f in self.featurize(data_labeled):
+            # NOTE: Ignore words if they are completely unknown
             token = f[0]
-            # NOTE: Ignore unseen words in examples when 
-            #       classifying them
-            if token not in counts:
+            if token not in self.vocab:
                 continue
-            else:
-                # NOTE: Perform laplace smoothing, with a 
+            else: 
+                # Perform laplace smoothing if only unknown in one context, with a 
                 # vocab size = unique tokens for all classes
-                f_prob = ((counts[token] + 1) / 
-                          (sum(counts.values()) + self.vocab_size))
+                f_prob = (counts[token] + 1) / denominator
                 prob += math.log(f_prob)
         return prob
 
@@ -161,19 +161,7 @@ class SentimentAnalysis:
         return "Naive Bayes - bag-of-words baseline"
 
 
-class SentimentAnalysisImproved:
-
-    def __init__(self):
-        pass
-
-    def train(self, examples):
-        pass
-
-    def score(self, data):
-        pass
-
-    def classify(self, data):
-        pass
+class SentimentAnalysisImproved(SentimentAnalysis):
 
     def featurize(self, data):
         pass
@@ -201,11 +189,20 @@ if __name__ == "__main__":
             label = sa.classify(example)
             output.write(f'{example[0]} {label}\n')
 
-    print(sa.score((1, "ID-1025	I have stayed at The Inn At The Convention Center for a total of one week on separate occasions. First, if you can get past the curt responses of the near inhuman clerks in the front office, you will make your way into one of the worst hotel experiences of your life. Taking a trip in the elevator feels as if it will be your last. It is squeaky, smells strongly of cleaning detergents, and runs slowly. Once you arrive on your floor, the smell of cleaning agents is even stronger than the smell of the elevator. It buries itself into one's pores and haunts your entire stay. As for the location, it's true that the Inn At The Convention Center is near major freeways and minutes from downtown, but the area it's located in is terrible, offering nothing in the way of good food or culture. It is a haven for young party animals, noise included. Additionally, the wi-fi is terrible, if and when it works at all.You would be better off saving your money for a different hotel in a different location. You won't be sorry you did.")))
+    # Report precision, recall, and f1 on the test data 
+    # (dev_file) for each of your model(s)
+    gold_labels = []
+    classified_labels = []
+    labels = (gold_labels, classified_labels)
+    for example in generate_tuples_from_file(DEV_DATA):
+        gold_labels.append(example[2])
+        classified_labels.append(sa.classify(example))
 
-    # Report precision, recall, and f1 on the test data for each of your model(s)
+    print(f'recall: {recall(*labels)}')
+    print(f'precision: {precision(*labels)}')
+    print(f'f1: {f1(*labels)}')
 
-    improved = SentimentAnalysisImproved()
-    print(improved)
-    improved.train(generate_tuples_from_file(training))
+    #improved = SentimentAnalysisImproved()
+    #print(improved)
+    #improved.train(generate_tuples_from_file(training))
 
