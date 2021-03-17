@@ -1,14 +1,20 @@
 
 import numpy as np
 import sys
-from funcy import collecting
+from funcy import collecting, post_processing
 from functools import reduce
-from collections import defaultdict
+from itertools import groupby
+from collections import Counter
 from typing import NamedTuple
 import math
+import string
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 
 """
 Author: Brian Peterson
+See the class comment of SentimentAnalysis
+for description of this module's purpose.
 """
 
 
@@ -20,6 +26,25 @@ by Daniel Jurafsky and James H. Martin
 
 POSITIVE = '1'
 NEGATIVE = '0'
+NEVER_FEATURE = "never"
+WORST_FEATURE = "worst"
+DESK_FEATURE = "desk" # This is very domain-specific, but good for this domain
+GREAT_FEATURE = "great"
+BEST_FEATURE = "best"
+BEAUTIFUL_FEATURE = "beautiful"
+WONDERFUL_FEATURE = "wonderful"
+FABULOUS_FEATURE = "fabulous"
+FANTASTIC_FEATURE = "fantastic"
+LOVE_FEATURE = "love"
+FRIENDLY_FEATURE = "friendly"
+SUBPAR_FEATURE = "sub-par"
+SAFETY_FEATURE = "safety"
+FIRST_AND_SECOND_PRONOUNS = (
+    "i", "me", "my", "mine", "myself", "we", 
+    "us", "our", "ours", "ourselves", "you",
+    "your", "yours", "yourself", "yourselves"
+)
+
 LABELED_TEST_DATA = "label_test_data.txt"
 DEV_DATA = "training_files/dev_file.txt"
 
@@ -57,7 +82,7 @@ def generate_tuples_from_file(training_file_path):
         for line in f.readlines():
             sline = line.strip()
             info = sline.split('\t')
-            if len(info) == 3:  # Ignore empty lines
+            if len(info) > 1:  # Ignore empty lines
                 yield tuple(info)
 
 
@@ -72,9 +97,12 @@ def precision(gold_labels, classified_labels):
     Returns:
         float: precision, or true positives / (true positives + false positives)
     """
-    tp, fp, _ = get_confusion_for_gold_and_classified(
+    tp, fp, _, _ = get_confusion_for_gold_and_classified(
       gold_labels, classified_labels)
-    return tp / (tp + fp)
+    try:
+        return tp / (tp + fp)
+    except:
+        return math.inf
 
 
 def recall(gold_labels, classified_labels):
@@ -88,9 +116,12 @@ def recall(gold_labels, classified_labels):
     Returns:
         float: recall, or true positives / (true positives + false negatives)
     """
-    tp, _, fn = get_confusion_for_gold_and_classified(
+    tp, _, fn, _ = get_confusion_for_gold_and_classified(
       gold_labels, classified_labels)
-    return tp / (tp + fn)
+    try:
+        return tp / (tp + fn)
+    except:
+        return math.inf
 
 
 def f1(gold_labels, classified_labels):
@@ -108,31 +139,41 @@ def f1(gold_labels, classified_labels):
     return (2 * p * r) / (p + r)
 
 
+def accuracy(gold_labels, classified_labels):
+    tp, fp, fn, tn = get_confusion_for_gold_and_classified(
+      gold_labels, classified_labels)
+    try:
+        return (tp + tn) / (tp + fp + tn + fn)
+    except:
+        return math.inf
+
 def get_confusion_for_gold_and_classified(gold_labels, classified_labels):
     """ Calculate the confusion matrix for gold
-        and classified labels, as a 3-tuple (ignore true negatives) """
+        and classified labels, as a 4-tuple """
     return reduce(_reduce_confusion_for_label_set,
                   map(LabelSet.from_iterable,
                   zip(gold_labels, classified_labels)),
-                  (0, 0, 0))
+                  (0, 0, 0, 0))
 
 
 def _reduce_confusion_for_label_set(accumulator, label_set):
     """ Given an initial count of true positives, 
-        false positives, and false negatives as a 3-tuple
-        called accumulator, return a new 3-tuple with 
-        these values updated given the next label_set. """
-    tp, fp, fn = accumulator
+        false positives, false negatives, and true negatives 
+        as a 4-tuple called accumulator, return a new 4-tuple 
+        with these values updated given the next label_set. """
+    tp, fp, fn, tn = accumulator
     if label_set.gold and label_set.classified:
-        return (tp+1, fp, fn)
+        return (tp+1, fp, fn, tn)
     elif not label_set.gold and label_set.classified:
-        return (tp, fp+1, fn)
+        return (tp, fp+1, fn, tn)
     elif label_set.gold and not label_set.classified:
-        return (tp, fp, fn+1)
+        return (tp, fp, fn+1, tn)
     else:
-        # NOTE: We don't need to know the # of true negatives
-        # to calculate precision, recall, and F1
-        return (tp, fp, fn)
+        return (tp, fp, fn, tn+1)
+
+
+def sigmoid(value):
+    return 1 / (1 + math.exp(-value))
 
 
 class SentimentAnalysis:
@@ -149,8 +190,8 @@ class SentimentAnalysis:
     def __init__(self):
         # NOTE: Deal with not present words in opposite dict here
         #       by assuming a count of 0 for each word
-        self.pos = defaultdict(lambda: 0)
-        self.neg = defaultdict(lambda: 0)
+        self.pos = Counter()
+        self.neg = Counter()
         self.vocab = 0
         self.prior_prob_pos = 0
         self.prior_prob_neg = 0
@@ -211,6 +252,11 @@ class SentimentAnalysis:
             if token not in self.vocab:
                 continue
             else: 
+                try:
+                    counts[token] # Check if the word is present
+                                  # in this class context
+                except KeyError:
+                    counts[token] = 0 # If not, set its count to 0
                 # Perform laplace smoothing if word is unknown in 
                 # up to one context, with a vocab size = 
                 # unique tokens for all classes
@@ -240,8 +286,6 @@ class SentimentAnalysis:
             data[1] into 2-tuples, each containing a token,
             and data[2], the original data's label. 
             Return this list (see collecting decorator). """
-        # NOTE: Can improve here, e.g. lemmatize, 
-        #       disclude stop words, etc. -- in Improved version only
         tokens = data[1].split()
         label = data[2]
         for token in tokens:
@@ -253,11 +297,122 @@ class SentimentAnalysis:
 
 class SentimentAnalysisImproved(SentimentAnalysis):
 
+                #      pos   neg  never desk worst   safety sub-par great best beautiful wonderful fabfan  friendly love 1st2ndPN log#words   bias
+    INITIAL_WEIGHTS = [3,  -4.0,  -1.5, -1.5,  -2,     -1,   -1,     3,   3,     3,        3,       4,      2,       2,  -0.2,      0.2,      1]
+
+    def __init__(self):
+        super().__init__()
+        # Some initial weights
+        self.weights = np.array(self.INITIAL_WEIGHTS)
+        self.learning_rate = 0.1 # This is relatively low: only move 
+                                 # initial weights much if they are pretty far off
+        # The batch size will be 10% of all examples (= 10 iterations)
+        self.relative_batch_size = 0.10
+        self.threshold = 0.5
+
+    def train(self, examples):
+        super().train(examples)
+
+        # Find most common words
+        self.most_common_number = 200
+        self.most_common_pos = dict(self.pos.most_common(self.most_common_number))
+        self.most_common_neg = dict(self.neg.most_common(self.most_common_number))
+
+        # Perform gradient descent to find best weights
+        # Form batches of batch_size
+        # NOTE: they could actually be mostly batch_size-1 
+        #       because of how using modulo to make groups works
+        batch_size = math.floor(len(examples) * self.relative_batch_size)
+        indexed_examples = \
+                [(i, example) for i, example in enumerate(examples)]
+        for key, example_group in groupby(
+                indexed_examples, 
+                key=lambda x: x[0] % batch_size):
+            
+            losses = np.array([0.0] * len(self.weights))
+            for indexed_example in example_group:
+                example = indexed_example[1] # Drop the wrapper index tuple
+                losses += self.get_cross_entropy_loss_gradient(example)
+            self.update_weights(losses)
+        # import pdb; pdb.set_trace()
+
+    @collecting
     def featurize(self, data):
-        pass
+        """ Given data, a 3-tuple, split the string contained in 
+            data[1] into 2-tuples, each containing a token,
+            and data[2], the original data's label. 
+            Return this list (see collecting decorator). """
+        tokens = word_tokenize(data[1])
+        lemmatizer = WordNetLemmatizer()
+        label = data[2]
+        for token in tokens:
+            token = lemmatizer.lemmatize(token)
+            token = token.lower()
+            yield (token, label)
+    
+    def update_weights(self, loss_gradient):
+        # Implement gradient descent
+        self.weights -= (
+            self.learning_rate * 
+            loss_gradient
+        )
+
+    @post_processing(np.array)
+    @collecting
+    def get_cross_entropy_loss_gradient(self, example):
+        label = example[2]
+        features = self.get_data_features(example)
+        class_prob = sigmoid(features.dot(self.weights))
+        error = class_prob - int(label)
+        for feature in features:
+            yield error * feature
+
+    def get_data_features(self, data):
+        data = data[1]
+
+        tokens = word_tokenize(data)
+        tokens_count = Counter(tokens)
+        percent_pos = len([token for token in tokens
+                                  if token in self.most_common_pos]) \
+                         / self.most_common_number
+        percent_neg = len([token for token in tokens
+                                  if token in self.most_common_neg]) \
+                         / self.most_common_number
+        never_feature = int(NEVER_FEATURE in tokens)
+        subpar_feature = int(SUBPAR_FEATURE in tokens)
+        safety_feature = int(SAFETY_FEATURE in tokens) 
+        desk_feature = int(DESK_FEATURE in tokens)
+        worst_feature = int(WORST_FEATURE in tokens)
+        friendly_feature = int(FRIENDLY_FEATURE in tokens)
+        great_feature = int(GREAT_FEATURE in tokens)
+        best_feature = int(BEST_FEATURE in tokens)
+        beautiful_feature = int(BEAUTIFUL_FEATURE in tokens)
+        wonderful_feature = int(WONDERFUL_FEATURE in tokens)
+        love_feature = int(LOVE_FEATURE in tokens)
+        fabulous_fantastic_feature = int(FABULOUS_FEATURE in tokens) +      \
+                                         int(FANTASTIC_FEATURE in tokens)
+        num_first_second_pronouns = len([token for token in tokens
+                                         if token in FIRST_AND_SECOND_PRONOUNS])
+        log_word_count_of_doc = math.log(len(tokens))
+        bias = self.prior_prob_pos - self.prior_prob_neg
+        return np.array([
+            percent_pos, percent_neg, never_feature, desk_feature, 
+            worst_feature, safety_feature, subpar_feature, 
+            great_feature, best_feature, beautiful_feature, 
+            wonderful_feature, fabulous_fantastic_feature,
+            friendly_feature, love_feature,  
+            num_first_second_pronouns, log_word_count_of_doc, bias
+        ]) 
+
+    def classify(self, data):
+        return str(int(self.score(data) > self.threshold))
+
+    def score(self, data):
+        features = self.get_data_features(data) 
+        return sigmoid(features.dot(self.weights))
 
     def __str__(self):
-        return "NAME FOR YOUR CLASSIFIER HERE"
+        return "Logistic Regression"
 
 
 if __name__ == "__main__":
@@ -280,7 +435,7 @@ if __name__ == "__main__":
             output.write(f'{example[0]} {label}\n')
 
     # Report precision, recall, and f1 on the test data 
-    # (dev_file) for each of your model(s)
+    # (dev_file) for basic model
     gold_labels = []
     classified_labels = []
     labels = (gold_labels, classified_labels)
@@ -288,11 +443,35 @@ if __name__ == "__main__":
         gold_labels.append(example[2])
         classified_labels.append(sa.classify(example))
 
+    print(gold_labels)
+    print(classified_labels)
+
     print(f'recall: {recall(*labels)}')
     print(f'precision: {precision(*labels)}')
     print(f'f1: {f1(*labels)}')
+    print(f'accuracy: {accuracy(*labels)}')
 
-    #improved = SentimentAnalysisImproved()
-    #print(improved)
-    #improved.train(generate_tuples_from_file(training))
+    improved = SentimentAnalysisImproved()
+    print(improved)
+    improved.train(generate_tuples_from_file(training))
+
+    # Report precision, recall, and f1 on the test data 
+    # (dev_file) for improved model
+
+    gold_labels = []
+    classified_labels = []
+    labels = (gold_labels, classified_labels)
+    for example in generate_tuples_from_file(DEV_DATA):
+        gold_labels.append(example[2])
+        classified_labels.append(improved.classify(example))
+
+    print(gold_labels)
+    print(classified_labels)
+
+    print(f'recall: {recall(*labels)}')
+    print(f'precision: {precision(*labels)}')
+    print(f'f1: {f1(*labels)}')
+    print(f'accuracy: {accuracy(*labels)}')
+
+
 
