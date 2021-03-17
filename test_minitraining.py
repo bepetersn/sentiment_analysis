@@ -60,7 +60,6 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
-        import pdb; pdb.set_trace()
         score=sa.score(('id', "I loved the hotel a lot"))
         #P(C|text)=P(I|C)*P(loved|C)*P(the|C)*P(hotel|C)*P(a|C)*P(lot|C)*P(C),where C is either 0 or 1(Classifier)
         pos = ((1+1)/(8+12))*((1+1)/(8+12))*((1+1)/(8+12))*((2+1)/(8+12))*(2/4)
