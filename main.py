@@ -37,7 +37,13 @@ FABULOUS_FEATURE = "fabulous"
 FANTASTIC_FEATURE = "fantastic"
 LOVE_FEATURE = "love"
 FRIENDLY_FEATURE = "friendly"
+PERFECT_FEATURE = "perfect" 
+RELAX_FEATURE = "relax"
+HELPFUL_FEATURE = "helpful"
 SUBPAR_FEATURE = "sub-par"
+RUDE_FEATURE = "rude"
+SNOBBISH_FEATURE = "snobbish" 
+EXAGGERATED_FEATURE = "exaggerated"
 SAFETY_FEATURE = "safety"
 FIRST_AND_SECOND_PRONOUNS = (
     "i", "me", "my", "mine", "myself", "we", 
@@ -45,7 +51,8 @@ FIRST_AND_SECOND_PRONOUNS = (
     "your", "yours", "yourself", "yourselves"
 )
 
-LABELED_TEST_DATA = "label_test_data.txt"
+LABEL_TEST_DATA = "label_test_data.txt"
+IMPROVED_LABEL_TEST_DATA = "improved_label_test_data.txt"
 DEV_DATA = "training_files/dev_file.txt"
 
 
@@ -297,8 +304,8 @@ class SentimentAnalysis:
 
 class SentimentAnalysisImproved(SentimentAnalysis):
 
-                #      pos   neg  never desk worst   safety sub-par great best beautiful wonderful fabfan  friendly love 1st2ndPN log#words   bias
-    INITIAL_WEIGHTS = [3,  -4.0,  -1.5, -1.5,  -2,     -1,   -1,     3,   3,     3,        3,       4,      2,       2,  -0.2,      0.2,      1]
+                #      pos   neg  never desk worst   safety sub-par rudesnob exagg great best beautiful wonderful fabfan  friendly love perfect relax 1st2ndPN log#words   bias
+    INITIAL_WEIGHTS = [3,   -3,  -1.5, -1.5,  -2,     -1,   -1,      -2,      -1,   3,   3,     3,        3,       4,      2,       2,    2,       2,    -0.2,     0.2,      1]
 
     def __init__(self):
         super().__init__()
@@ -312,6 +319,8 @@ class SentimentAnalysisImproved(SentimentAnalysis):
 
     def train(self, examples):
         super().train(examples)
+
+        # TODO: use bigram counts as well
 
         # Find most common words
         self.most_common_number = 200
@@ -383,7 +392,7 @@ class SentimentAnalysisImproved(SentimentAnalysis):
         safety_feature = int(SAFETY_FEATURE in tokens) 
         desk_feature = int(DESK_FEATURE in tokens)
         worst_feature = int(WORST_FEATURE in tokens)
-        friendly_feature = int(FRIENDLY_FEATURE in tokens)
+        friendly_feature = int(FRIENDLY_FEATURE in tokens) + int(HELPFUL_FEATURE in tokens)
         great_feature = int(GREAT_FEATURE in tokens)
         best_feature = int(BEST_FEATURE in tokens)
         beautiful_feature = int(BEAUTIFUL_FEATURE in tokens)
@@ -391,6 +400,10 @@ class SentimentAnalysisImproved(SentimentAnalysis):
         love_feature = int(LOVE_FEATURE in tokens)
         fabulous_fantastic_feature = int(FABULOUS_FEATURE in tokens) +      \
                                          int(FANTASTIC_FEATURE in tokens)
+        perfect_feature = int(PERFECT_FEATURE in tokens)
+        relax_feature = int(RELAX_FEATURE in tokens)
+        rude_snobbish_feature = int(RUDE_FEATURE in tokens) + int(SNOBBISH_FEATURE in tokens)
+        exaggerated_feature = int(EXAGGERATED_FEATURE in tokens)
         num_first_second_pronouns = len([token for token in tokens
                                          if token in FIRST_AND_SECOND_PRONOUNS])
         log_word_count_of_doc = math.log(len(tokens))
@@ -398,9 +411,10 @@ class SentimentAnalysisImproved(SentimentAnalysis):
         return np.array([
             percent_pos, percent_neg, never_feature, desk_feature, 
             worst_feature, safety_feature, subpar_feature, 
+            rude_snobbish_feature, exaggerated_feature,
             great_feature, best_feature, beautiful_feature, 
             wonderful_feature, fabulous_fantastic_feature,
-            friendly_feature, love_feature,  
+            friendly_feature, love_feature, perfect_feature, relax_feature,
             num_first_second_pronouns, log_word_count_of_doc, bias
         ]) 
 
@@ -425,11 +439,12 @@ if __name__ == "__main__":
 
     sa = SentimentAnalysis()
     print(sa)
+    sa.train(generate_tuples_from_file(training))
 
     # Classify each example in the given testing file
+    # using the basic model
     # Put the results in label_test_data.txt
-    sa.train(generate_tuples_from_file(training))
-    with open(LABELED_TEST_DATA, 'w') as output:
+    with open(LABEL_TEST_DATA, 'w') as output:
         for example in generate_tuples_from_file(testing):
             label = sa.classify(example)
             output.write(f'{example[0]} {label}\n')
@@ -445,7 +460,6 @@ if __name__ == "__main__":
 
     print(gold_labels)
     print(classified_labels)
-
     print(f'recall: {recall(*labels)}')
     print(f'precision: {precision(*labels)}')
     print(f'f1: {f1(*labels)}')
@@ -454,6 +468,14 @@ if __name__ == "__main__":
     improved = SentimentAnalysisImproved()
     print(improved)
     improved.train(generate_tuples_from_file(training))
+
+    # Classify each example in the given testing file using 
+    # the improved models
+    # Put the results in label_test_data.txt
+    with open(IMPROVED_LABEL_TEST_DATA, 'w') as output:
+        for example in generate_tuples_from_file(testing):
+            label = sa.classify(example)
+            output.write(f'{example[0]} {label}\n')
 
     # Report precision, recall, and f1 on the test data 
     # (dev_file) for improved model
@@ -467,7 +489,6 @@ if __name__ == "__main__":
 
     print(gold_labels)
     print(classified_labels)
-
     print(f'recall: {recall(*labels)}')
     print(f'precision: {precision(*labels)}')
     print(f'f1: {f1(*labels)}')
