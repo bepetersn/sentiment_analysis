@@ -1,8 +1,6 @@
 import unittest
 import math
-import hw3_sentiment as hw3
-
-# updated 3/5/2020 to fix ordering issues in tests
+import main
 
 
 class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
@@ -16,16 +14,16 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
 
     def test_GenerateTuplesFromTrainingFile(self):
         #Tests the tuple generation from the sentences
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         actualExamples = [('ID-2', 'The hotel was not liked by me', '0'), ('ID-3', 'I loved the hotel', '1'), ('ID-1', 'The hotel was great', '1'), ('ID-4', 'I hated the hotel', '0')]
         self.assertListEqual(sorted(actualExamples), sorted(examples))
 
        
     def test_ScorePositiveExample(self):
         #Tests the Probability Distribution of each class for a positive example
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
@@ -40,8 +38,8 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
   
     def test_ScorePositiveExampleRepeats(self):
         #Tests the Probability Distribution of each class for a positive example
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
@@ -55,8 +53,8 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
 
     def test_ScorePositiveExampleWithUnkowns(self):
         #Tests the Probability Distribution of each class for a positive example
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         #Trains the Naive Bayes Classifier based on the tuples from the training data
         sa.train(examples)
         #Returns a probability distribution of each class for the given test sentence
@@ -71,8 +69,8 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
 
     def test_ClassifyForPositiveExample(self):
         #Tests the label classified  for the positive test sentence
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
         #Classifies the test sentence based on the probability distribution of each class
         label=sa.classify(('id', "I loved the hotel a lot"))
@@ -83,8 +81,8 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
 
     def test_ScoreForNegativeExample(self):
         #Tests the Probability Distribution of each class for a negative example
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
         score=sa.score(('id', "I hated the hotel"))
          #P(C|text)=P(I|C)*P(hated|C)*P(the|C)*P(hotel|C)*P(C),where C is either 0 or 1(Classifier)
@@ -97,8 +95,8 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
 
     def test_ClassifyForNegativeExample(self):
         #Tests the label classified  for the negative test sentence
-        sa = hw3.SentimentAnalysis()
-        examples = hw3.generate_tuples_from_file(self.trainingFilePath)
+        sa = main.SentimentAnalysis()
+        examples = main.generate_tuples_from_file(self.trainingFilePath)
         sa.train(examples)
         label=sa.classify(('id', "I hated the hotel"))
         actualLabel='0'
@@ -110,7 +108,7 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         gold = [str(b) for b in gold]
         classified = [1, 0, 0, 0, 1]
         classified = [str(b) for b in classified]
-        self.assertEqual((1 / 2), hw3.precision(gold, classified))
+        self.assertEqual((1 / 2), main.precision(gold, classified))
 
 
     def test_recall(self):
@@ -118,7 +116,7 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         gold = [str(b) for b in gold]
         classified = [1, 0, 0, 0, 1]
         classified = [str(b) for b in classified]
-        self.assertEqual((1 / 3), hw3.recall(gold, classified))
+        self.assertEqual((1 / 3), main.recall(gold, classified))
 
     def test_f1(self):
         gold = [1, 1, 1, 0, 0]
@@ -127,7 +125,7 @@ class TestSentimentAnalysisBaselineMiniTrain(unittest.TestCase):
         classified = [str(b) for b in classified]
         p = 1 / 2
         r = 1 / 3
-        self.assertEqual((2 * p * r) / (p + r), hw3.f1(gold, classified))
+        self.assertEqual((2 * p * r) / (p + r), main.f1(gold, classified))
         
 
 if __name__ == "__main__":
